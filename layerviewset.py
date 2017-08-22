@@ -1,4 +1,6 @@
 # Layer View Set.py
+# https://github.com/HiGregSmith/LayerViewSet
+# https://github.com/HiGregSmith/LayerViewSet/blob/master/README.md
 #
 # A gui for saving, loading view sets as well as interacting with a stack
 # of view sets for changing which layers are viewed within KiCad.
@@ -19,18 +21,24 @@
 # LayerViewSet dialog box is shown when the LayerViewSet menu item is selected.
 # 
 
+import os
 import time
 import pcbnew
 import wx
 import wx.aui
 import layerviewset_gui
 
+savepath = os.path.join(os.path.expanduser('~'),'kicad','viewsets')
 
 #######
 ## GUI Definition
 #######
+# Modifications to wxFormBuilder
+# Frame.SizeHints -> SizeHintsSz
+# Menu.Append -> Menu.AppendItem
 
-class gui (layerviewset_gui.layerviewset_panel2):
+    
+class gui (layerviewset_gui.layerviewset_panel):
     """Inherits from the layerviewset_gui form wxFormBuilder. Supplies
        functions that tie the gui to the layerviewset class below."""
     _lvset_instance = None
@@ -40,7 +48,7 @@ class gui (layerviewset_gui.layerviewset_panel2):
         self._lvset_instance = lvset_instance
         super(gui,self).__init__(parent_frame)#, *args, **kw)
         #self.makedock(self.GetChildren()[1])#.interior_panel)
-        
+        print self.linkpanel
 
     def makedock(self,panel=None):
         managed_window,manager = get_parent_panel()
@@ -74,7 +82,7 @@ class gui (layerviewset_gui.layerviewset_panel2):
     def save(self,e):
         wx.MessageDialog(self,"save Not Implemented",style=wx.OK).ShowModal()
     def loadset(self,e):
-        self._lvset_instance.loadset()
+        self._lvset_instance.loadset(e)
         #wx.MessageDialog(self,"loadset Not Implemented "+str(e),style=wx.OK).ShowModal()
     def push(self,e):
         self._lvset_instance.push()
@@ -87,7 +95,19 @@ class gui (layerviewset_gui.layerviewset_panel2):
         self._lvset_instance.pop()
     def dock(self,e):
         return
-        
+    def nameset(self,e):
+        #self._lvset_instance._message.SetLabel("name")
+        self._lvset_instance.nameset(e)
+        return
+    def deleteset(self,e):
+        #self._lvset_instance._message.SetLabel("delete")
+        self._lvset_instance.deleteset(e)
+    def linkbuttonOnContextMenu( self, event ):
+        #self._message.SetLabel("override")
+        self.context_object = event.GetEventObject()
+        self.linkpanel.PopupMenu( self.m_menu3, self.linkpanel.ScreenToClient(event.GetPosition()) )
+    context_object = None
+    
 #######
 ## End GUI Definition
 #######
@@ -105,8 +125,168 @@ class layerviewset(pcbnew.ActionPlugin):
     """The window containing the stack elements."""
     _message = None
     """The control containing a message (error, information, etc)."""
-    
+    def findwidget(self,widget):
+        """Find the widget either with the saved sets or the stack sets."""
+        self._message.SetLabel("1 Finding...")
+        found = filter(lambda x:x[2] == widget,self._layersetstack)
+        self._message.SetLabel("2 Finding...")
+        
+        if not found:
+            self._message.SetLabel("3 Finding...")
+            found = filter(lambda x:x[2] == widget,self._layersetsaved)
+            self._message.SetLabel("4 Finding...")
+        if not found:
+            self._message.SetLabel("5 Finding...")
+            return None
+            
+        self._message.SetLabel("6 Finding...")
+        return found[0]
+    def loadsetsfromfolder(self):
+        board = pcbnew.GetBoard()
+        f = []
+        for (dirpath, dirnames, filenames) in os.walk(savepath):
+            f.extend(filenames)
+            break
+        for filename in filenames:
+            layerarray = []
+            rendervalue = None
+            with open(os.path.join(dirpath,filename),'r') as f:
+                for line in f:
+                    line=line.strip()
+                    if line.startswith('#'):
+                        continue
+                    # line here is 3 values separated by commas
+                    (type,name,visible) = map(str.strip,line.split(','))
+                    if type=='layer':
+                        id = board.GetLayerID(name)
+                        layerarray.append((id,visible))
+                    elif type=='render':
+                        rendervalue = int(name, 2)
+                    else:
+                        pass
+                        # type is unrecognized
+                # Generate the lset and the render values, and assign them to an element
+                # element is (layerset,rendervalue,widget,name,file)
+                if layerarray:
+                    layerset = pcbnew.LSET()
+                    for layer,visible in layerarray:
+                        layerset.addLayer(layer)
+                else:
+                    layerset = None
+            widget = self.get_viewset_widget(self._nameparent,filename,"") # names
+            element = (layerset,rendervalue,widget,filename,os.path.join(dirpath,filename))
+            self._layersetsaved.append(element)
+            
+    def nameset(self,e):
+        widget = self._lvset_frame.context_object
+        self._message.SetLabel(widget.GetLabel())
+        try:
+            found = self.findwidget(widget)
+        except:
+            self._message.SetLabel("error during find")
+            
+        if found is None:
+            #self._message.SetLabel("set not found")
+            return
+        else:
+            self._message.SetLabel("set found %d"%len(self._layersetsaved))
+        # Ask user for set name
+        initname = "Hello"
+        if found[3:4]:
+            self._message.SetLabel("1")
+            initname = found[3:4][0]
+            self._message.SetLabel("2")
+        else:
+            self._message.SetLabel("3")
+            count = 1
+            while os.path.exists(os.path.join(savepath,"ViewSet "+str(count))):
+                count += 1
+            self._message.SetLabel("4")
+            initname = "ViewSet "+str(count)
+        self._message.SetLabel("5")
+        dlg = wx.TextEntryDialog(self._lvset_frame, "Enter new set name", defaultValue=initname)
+        dlg.ShowModal()
+        new_name = dlg.GetValue()
+        dlg.Destroy()
 
+        try:
+            if not found[3:4]: # test to see if there's a fourth element (i.e. name)
+                # this is a stack, so save and name it.
+                #new_name = str(len(self._layersetsaved))
+                self._message.SetLabel("new name %s"%new_name)
+                if not os.path.exists(savepath):
+                    os.makedirs(savepath)
+                    self._message.SetLabel('created ~/kicad/viewsets')
+                self._message.SetLabel("saving to %s"%new_name)
+                new_path = os.path.join(savepath, new_name)
+                with open(new_path,'w') as f:
+                    self._message.SetLabel("writing %s, %s"%(new_name,str(found[0])))
+                    for layer in self.getnamefromlayers(found[0]):
+                        f.write('layer,%s,%d\n'%(layer,1))
+                    self._message.SetLabel("wrote layers")
+                    renders = found[1]
+                    rname = "{0:b}".format(renders)
+                    f.write('render,%s,%d\n'%(rname,1))
+                    self._message.SetLabel("wrote renders")
+
+                new_widget = self.get_viewset_widget(self._nameparent,new_name,"") # names
+                new_element = (found[0],found[1],new_widget,new_name,new_path)
+                self._message.SetLabel("created element")
+
+                self._layersetsaved.append(new_element)    
+                self._message.SetLabel("appended")
+            else:
+                self._message.SetLabel("new name %s"%new_name)
+                # found contains the element to rename
+                widget = found[2]
+                old_name = found[3]
+                old_filepath = found[4]
+                new_filepath = os.path.join(savepath,new_name)
+                
+                # rename the file
+                os.rename(old_filepath,new_filepath)
+                # rename the widget
+                widget.SetLabel(new_name)
+                # replace the element in the Named ViewSet List
+                i = self._layersetsaved.index(found)
+                self._layersetsaved[i] = (found[0],found[1],widget,new_name,new_filepath)
+            self._message.SetLabel("Saved %s"%new_name)
+        except:
+            self._message.SetLabel("ERROR "+self._message.GetLabel())
+         
+
+
+    def deleteset(self,widget):
+        self._message.SetLabel("deleteset")
+        widget = self._lvset_frame.context_object
+        self._message.SetLabel(widget.GetLabel())
+        found = self.findwidget(widget)
+        if found is None:
+            self._message.SetLabel("set not found")
+            return
+        else:
+            self._message.SetLabel("set found %d"%len(self._layersetsaved))
+        try:
+            self._layersetstack.remove(found)
+        except:
+            pass
+        try:
+            self._layersetsaved.remove(found)
+        except:
+            pass
+        parent = found[2].GetParent()
+        sizer=parent.GetSizer()
+        found[2].Destroy()
+        try:
+            filename = found[4:5]
+            if filename and os.path.exists(filename[0]):
+                self._message.SetLabel("removing")
+                os.remove(found[4])
+                self._message.SetLabel("removed")
+        except:
+            pass
+        sizer.Layout()
+                
     #######
     ## ActionPlugin
     #######
@@ -143,6 +323,8 @@ class layerviewset(pcbnew.ActionPlugin):
     def Run(self):
         """Necessary for ActionPlugin, shows the gui and sets up some class
         variables for use within the functions."""
+        self._layersetstack = []
+        self._layersetsaved = []
         # Instantiate and Show the gui, giving it
         # the current instance (for calling functions) and
         # the parent frame (Pcbnew)
@@ -165,24 +347,31 @@ class layerviewset(pcbnew.ActionPlugin):
         
         # Set the class variable for the window that will contain the stack.
         self._linkparent = self._lvset_frame.FindWindowByName('linkwindow')
+        self._nameparent = self._lvset_frame.FindWindowByName('namewindow')
         self._message = self._lvset_frame.FindWindowByName('message_label')
         self._message.SetLabel("Click on any label:")
         # Destroy sample links
         self._linkparent.DestroyChildren()
+        self._nameparent.DestroyChildren()
         
         # Set the layersetstack first item to the current visible layers.
         self._lvset_frame.push(None)
+        
+        # initialize named layer sets
+        self.loadsetsfromfolder()
     #######
     ## End ActionPlugin
-    #######
-
+    #######    
 
     # _layersetstack elements are tuples (layer LSET *,render int *,widget,name)
     _layersetstack = []
+    _layersetsaved = []
     _count = 1
     
     def loadset(self,e):
         """Load a viewset based on the object (e) clicked."""
+        self._message.SetLabel("m1")
+        return
         # The widget is the object that was clicked.
         widget = e.GetEventObject()
         
@@ -205,7 +394,44 @@ class layerviewset(pcbnew.ActionPlugin):
     
     def pushrenders(self):
         self._push(None,pcbnew.GetBoard().GetVisibleElements())
+    def getnamefromlayers(self,layers):
+        return [pcbnew.GetBoard().GetLayerName(num) for num in 
+                [x for x in layers.Seq()]]
+    def getnamefromrenders(self,renders):
+        return name
     
+    def get_viewset_widget(self,parent,label,tooltip=None):
+        widget = wx.StaticText(
+            parent,
+            wx.ID_ANY,
+            label,
+            wx.DefaultPosition,
+            wx.DefaultSize,
+            0|wx.RAISED_BORDER )
+        widget.SetToolTip(wx.ToolTip(tooltip))
+        #widget.Wrap( -1 )
+        #widget.Bind(wx.EVT_BUTTON, self._lvset_frame.loadset)
+        widget.Bind( wx.EVT_CONTEXT_MENU, self._lvset_frame.linkbuttonOnContextMenu )
+        widget.Bind( wx.EVT_LEFT_UP, self._lvset_frame.loadset )
+        
+        #widget.Bind( wx.EVT_CONTEXT_MENU, self._lvset_frame.m_button3OnContextMenu )
+        #self._lvset_frame.Bind( wx.EVT_CONTEXT_MENU, self._lvset_frame.m_button3OnContextMenu, widget)
+        
+        #self.get_button_context(widget)
+        #widget.Bind( wx.EVT_RIGHT_UP, self._lvset_frame.stacksetcontext )
+
+        #widget.Bind( wx.EVT_SIZE, self.sizelabel )
+        
+        # Insert this widget as the first element on the stack widget,
+        # i.e. the top of the list.        
+        parent.GetSizer().Insert(0,widget,0,wx.ALL,5)
+
+        # Try a whole bunch of things to get the wxWindow to refresh.
+        parent.Layout()
+        parent.Refresh()
+
+        return widget
+        
     def _push(self,layers,renders):
         """Push the current view set onto the stack, create the text widget,
            and add the widget to the display."""
@@ -215,9 +441,7 @@ class layerviewset(pcbnew.ActionPlugin):
         # Nested list comprehensions to retrieve the names of the currently
         # visible layers.
         if layers is not None:
-            names = ', '.join([
-                board.GetLayerName(num) for num in 
-                [x for x in layers.Seq()]])
+            names = ', '.join(self.getnamefromlayers(layers))
         else:
             names = ''
         if renders is not None:
@@ -233,46 +457,21 @@ class layerviewset(pcbnew.ActionPlugin):
             
         if layers is not None:
             if renders is not None:
-                label = "%d Layers; %d Renders"%(layercount,rendercount)
+                label = "%d/%d"%(layercount,rendercount)
             else:
-                label = "%d Layers"%layercount
+                label = "%d/"%layercount
         else:
-            label = "%d Renders"%rendercount
+            label = "/%d"%rendercount
             
         # Create the staticText widget in the stack, that when clicked will
         # set the visible layers to that element.
-        # self.m_staticText3 = wx.StaticText( 
-            # self.m_scrollwindow, 
-            # wx.ID_ANY, 
-            # u"My Set", 
-            # wx.DefaultPosition, 
-            # wx.DefaultSize, 
-            # 0|wx.RAISED_BORDER )
-		# self.m_staticText3.Wrap( -1 )
-
-        widget = wx.StaticText(
-            self._linkparent,
-            wx.ID_ANY,
-            label,
-            wx.DefaultPosition,
-            wx.DefaultSize,
-            0|wx.RAISED_BORDER )
-        widget.SetToolTip(wx.ToolTip(names))
-        widget.Wrap( -1 )
-        widget.Bind( wx.EVT_LEFT_UP, self._lvset_frame.loadset )
-        widget.Bind( wx.EVT_SIZE, self.sizelabel )
+        widget = self.get_viewset_widget(self._linkparent,label,names)
 
         self._count += 1
         element = (layers,renders,widget)
         self._layersetstack.append(element)
-        
-        # Insert this widget as the first element on the stack,
-        # i.e. the top of the list.        
-        self._linkparent.GetSizer().Insert(0,widget,0,wx.ALL,5)
+        self._message.SetLabel("done")
 
-        # Try a whole bunch of things to get the wxWindow to refresh.
-        self._linkparent.Layout()
-        self._linkparent.Refresh()
 
     def sizelabel(self,e):
         """Called when a label is resized. This simply resets the wrapping
@@ -356,7 +555,7 @@ _lvset.register()
 
 
 
-# Derived rom KiCad source code, near the top of pcbnew/class_pcb_layer_widget.cpp
+# Derived from KiCad source code, near the top of pcbnew/class_pcb_layer_widget.cpp
 label2elementnum = {
      "Through Via" : pcbnew.LAYER_VIA_THROUGH ,
      "Bl/Buried Via" : pcbnew.LAYER_VIA_BBLIND , 
