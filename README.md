@@ -1,16 +1,17 @@
 # Layer View Set
 
-**layerviewset.py** and **layerviewset_gui.py**
-
-*[Please report any bugs found](https://github.com/HiGregSmith/LayerViewSet/issues)*
-
 A gui for saving and loading ViewSets and interacting
 with a stack of ViewSets for quickly changing the currently visible
 layers and renders within KiCad.
 
-**Because of a [bug in KiCad](https://bugs.launchpad.net/kicad/+bug/1712233), you must currently switch views from and back
-to OpenGL to see the effect of layerviewset on the layers.**
+**layerviewset.py** and **layerviewset_gui.py**
 
+*[Please report any bugs found](https://github.com/HiGregSmith/LayerViewSet/issues)*
+
+**Because of a [bug in older nightlies of KiCad](https://bugs.launchpad.net/kicad/+bug/1712233), you must currently switch views from and back
+to OpenGL to see the effect of layerviewset on the layers. This is fixed in
+[commit a557838c615c9b268830138348c6a8d6a4cc9ba9](https://bugs.launchpad.net/kicad/+bug/1712233/comments/4)
+**
 
 ## INSTALLATION
 

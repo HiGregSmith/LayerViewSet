@@ -370,8 +370,8 @@ class layerviewset(pcbnew.ActionPlugin):
     
     def loadset(self,e):
         """Load a viewset based on the object (e) clicked."""
-        self._message.SetLabel("m1")
-        return
+        # self._message.SetLabel("m1")
+        # return
         # The widget is the object that was clicked.
         widget = e.GetEventObject()
         
@@ -383,8 +383,10 @@ class layerviewset(pcbnew.ActionPlugin):
             pcbnew.GetBoard().SetVisibleLayers(element[0])
         if element[1] is not None:
             pcbnew.GetBoard().SetVisibleElements(element[1])
-        self._message.SetLabel("Change Canvas to view")
-
+        try:
+            pcbnew.UpdateUserInterface()
+        except:
+            self._message.SetLabel("Change Canvas to view")
 
     def push(self):
         self._push(pcbnew.GetBoard().GetVisibleLayers(),pcbnew.GetBoard().GetVisibleElements())
@@ -537,6 +539,10 @@ class layerviewset(pcbnew.ActionPlugin):
             p.GetParent().Refresh()
             self._linkparent.Layout()
             self._linkparent.Refresh()
+            try:
+                pcbnew.UpdateUserInterface()
+            except:
+                self._message.SetLabel("Change Canvas to view")
         else:
             self._message.SetLabel("Nothing to pop")
 
