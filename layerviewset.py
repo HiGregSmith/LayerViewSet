@@ -147,7 +147,7 @@ class layerviewset(pcbnew.ActionPlugin):
         for (dirpath, dirnames, filenames) in os.walk(savepath):
             f.extend(filenames)
             break
-        for filename in filenames:
+        for filename in f:
             layerarray = []
             rendervalue = None
             with open(os.path.join(dirpath,filename),'r') as f:
@@ -303,7 +303,7 @@ class layerviewset(pcbnew.ActionPlugin):
     def GetLayerManager(self):
         """Find the layer_manager panel and its AUI manager"""
         # find the top-level auimanager
-        win = wx.FindWindowByLabel('F.Cu')
+        win = wx.FindWindowByLabel(pcbnew.GetBoard().GetLayerName( pcbnew.F_Cu ))
         am = [wx.aui.AuiManager.GetManager(win)]
         # an attempt to get the AuiManager from one of the parents.
         # (an earlier test showed maybe 2-3 different AuiManagers among the ancestors)
@@ -437,8 +437,6 @@ class layerviewset(pcbnew.ActionPlugin):
     def _push(self,layers,renders):
         """Push the current view set onto the stack, create the text widget,
            and add the widget to the display."""
-        board = pcbnew.GetBoard()
-        layercb,rendercb = self.GetCheckboxes()
         
         # Nested list comprehensions to retrieve the names of the currently
         # visible layers.
@@ -452,8 +450,9 @@ class layerviewset(pcbnew.ActionPlugin):
             names += "Renders"
             
         if renders is not None:
-            rendercount = len(filter(lambda x: x.Value,rendercb.values()))
-            
+            #layercb,rendercb = self.GetCheckboxes()
+            #rendercount = len(filter(lambda x: x.Value,rendercb.values()))
+            rendercount=bin(renders).count("1")
         if layers is not None:
             layercount = len([x for x in layers.Seq()])
             
@@ -482,33 +481,33 @@ class layerviewset(pcbnew.ActionPlugin):
         widget.Wrap( widget.GetClientSize().GetWidth() )
         
         
-    def GetCheckboxes(self):
-        layercb=None
-        rendercb=None
-        board = pcbnew.GetBoard()
-        fcu = wx.FindWindowByLabel('F.Cu')
-        wins = [sc.GetWindow() for sc in fcu.GetParent().GetSizer().GetChildren()]
-        wins = filter(lambda x: isinstance(x,wx._controls.StaticText) or isinstance(x,wx._controls.CheckBox),wins)
-        # split into length 2 chunks:
-        # Assume that the controls are in order (that's why we use the Sizer children)
-        layercb = {board.GetLayerID(label.GetLabel()):cb for cb,label in zip(*[iter(wins)]*2)}
+    # def GetCheckboxes(self):
+        # layercb=None
+        # rendercb=None
+        # board = pcbnew.GetBoard()
+        # fcu = wx.FindWindowByLabel(board.GetLayerName( pcbnew.F_Cu ))
+        # wins = [sc.GetWindow() for sc in fcu.GetParent().GetSizer().GetChildren()]
+        # wins = filter(lambda x: isinstance(x,wx._controls.StaticText) or isinstance(x,wx._controls.CheckBox),wins)
+        # # split into length 2 chunks:
+        # # Assume that the controls are in order (that's why we use the Sizer children)
+        # layercb = {board.GetLayerID(label.GetLabel()):cb for cb,label in zip(*[iter(wins)]*2)}
         
-        # for rendercb, get the checkbox and that checkbox's label
-        rendercb = {label2elementnum[x.GetLabel()]:x for x in filter(lambda x: isinstance(x,wx._controls.CheckBox),
-                map(lambda x: x.GetWindow(),
-                    fcu.GetParent().
-                    GetParent().GetParent().
-                    FindWindowByLabel('Grid').
-                    GetParent().
-                    GetSizer().GetChildren())
-            )}
+        # # for rendercb, get the checkbox and that checkbox's label
+        # rendercb = {label2elementnum[x.GetLabel()]:x for x in filter(lambda x: isinstance(x,wx._controls.CheckBox),
+                # map(lambda x: x.GetWindow(),
+                    # fcu.GetParent().
+                    # GetParent().GetParent().
+                    # FindWindowByLabel('Grid'). # wx.GetTranslation('Grid')
+                    # GetParent().
+                    # GetSizer().GetChildren())
+            # )}
         
-        return layercb,rendercb
+        # return layercb,rendercb
     def pop(self):
         """Pop the top of the layersetstack and set the visible layers to
            those indicated in the element popped."""
         board = pcbnew.GetBoard()
-        layercb,rendercb = self.GetCheckboxes()
+        #layercb,rendercb = self.GetCheckboxes()
            
         # Only do this if there are elements within the layersetstack.
         if len(self._layersetstack) > 0:
@@ -522,10 +521,10 @@ class layerviewset(pcbnew.ActionPlugin):
             if element[1] is not None:
                 board.SetVisibleElements(element[1])
                 
-            for layer,cb in layercb.iteritems():
-                cb.Value = board.IsLayerVisible(layer)
-            for r,cb in rendercb.iteritems():
-                cb.Value = board.IsElementVisible(r)
+            #for layer,cb in layercb.iteritems():
+            #    cb.Value = board.IsLayerVisible(layer)
+            #for r,cb in rendercb.iteritems():
+            #    cb.Value = board.IsElementVisible(r)
             
             
             # Try a few things to get the window to refresh.
