@@ -173,13 +173,57 @@ class layerviewset(pcbnew.ActionPlugin):
                         layerset.addLayer(layer)
                 else:
                     layerset = None
-            widget = self.get_viewset_widget(self._nameparent,filename,"") # names
+            widget = self.get_viewset_widget(
+              self._nameparent,
+              filename,
+              self.get_tool_tip(layerset,rendervalue))
             element = (layerset,rendervalue,widget,filename,os.path.join(dirpath,filename))
             self._layersetsaved.append(element)
             
+    def get_tool_tip(self, layers, renders):
+        #board = pcbnew.GetBoard()
+        #renderlabel = ""
+        #layerlabel = ""
+           
+        # Nested list comprehensions to retrieve the names of the currently
+        # visible layers.
+        if layers is not None:
+            tooltip = ', '.join(self.getnamefromlayers(layers))
+            #layerlabel = str(len([x for x in layers.Seq()]))
+        else:
+            tooltip = ''
+            
+        if renders is not None:
+            if layers is not None:
+                tooltip += "; "
+            num2name = {v:k for k,v in label2elementnum.items()}
+            # evisible = filter(lambda x: board.IsElementVisible(x),
+                                # label2elementnum.values()
+                             # )
+            # tooltip += ", ".join([num2name[e] for e in evisible])
+            tooltip += "Renders"
+            
+            #layercb,rendercb = self.GetCheckboxes()
+            #rendercount = len(filter(lambda x: x.Value,rendercb.values()))
+            # This gets the "raw" count including all "behind the scenes" renders:
+            # renderlabel = str(bin(renders).count("1"))
+            
+            # This gets the renders selected by the user,
+            # assuming label2elementnum is uptodate
+            #renderlabel = str(len(evisible))
+            
+        #label = layerlabel + '/' + renderlabel
+        return tooltip
+        
     def nameset(self,e):
         widget = self._lvset_frame.context_object
         self._message.SetLabel(widget.GetLabel())
+        
+        try:
+            tooltip = widget.GetToolTip().GetTip()
+        except:
+            tooltip = ""
+        
         try:
             found = self.findwidget(widget)
         except:
@@ -205,8 +249,14 @@ class layerviewset(pcbnew.ActionPlugin):
             initname = "ViewSet "+str(count)
         self._message.SetLabel("5")
         dlg = wx.TextEntryDialog(self._lvset_frame, "Enter new set name", defaultValue=initname)
-        dlg.ShowModal()
+        result = dlg.ShowModal()
+        if result != wx.ID_OK:
+            self._message.SetLabel("Cancelled (%s)"%str(result))
+            return
         new_name = dlg.GetValue()
+        if filter(lambda x:x[3]==new_name,self._layersetsaved):
+            self._message.SetLabel("Already exists")
+            return
         dlg.Destroy()
 
         try:
@@ -220,16 +270,19 @@ class layerviewset(pcbnew.ActionPlugin):
                 self._message.SetLabel("saving to %s"%new_name)
                 new_path = os.path.join(savepath, new_name)
                 with open(new_path,'w') as f:
-                    self._message.SetLabel("writing %s, %s"%(new_name,str(found[0])))
-                    for layer in self.getnamefromlayers(found[0]):
-                        f.write('layer,%s,%d\n'%(layer,1))
-                    self._message.SetLabel("wrote layers")
-                    renders = found[1]
-                    rname = "{0:b}".format(renders)
-                    f.write('render,%s,%d\n'%(rname,1))
-                    self._message.SetLabel("wrote renders")
+                    layers=found[0]
+                    renders=found[1]
+                    if layers is not None:
+                        self._message.SetLabel("writing %s, %s"%(new_name,str(layers)))
+                        for layer in self.getnamefromlayers(layers):
+                            f.write('layer,%s,%d\n'%(layer,1))
+                        self._message.SetLabel("wrote layers")
+                    if renders is not None:
+                        rname = "{0:b}".format(renders)
+                        f.write('render,%s,%d\n'%(rname,1))
+                        self._message.SetLabel("wrote renders")
 
-                new_widget = self.get_viewset_widget(self._nameparent,new_name,"") # names
+                new_widget = self.get_viewset_widget(self._nameparent,new_name,tooltip) # names
                 new_element = (found[0],found[1],new_widget,new_name,new_path)
                 self._message.SetLabel("created element")
 
@@ -437,32 +490,39 @@ class layerviewset(pcbnew.ActionPlugin):
     def _push(self,layers,renders):
         """Push the current view set onto the stack, create the text widget,
            and add the widget to the display."""
-        
+
+        board = pcbnew.GetBoard()
+        renderlabel = ""
+        layerlabel = ""
+           
         # Nested list comprehensions to retrieve the names of the currently
         # visible layers.
         if layers is not None:
             names = ', '.join(self.getnamefromlayers(layers))
+            layerlabel = str(len([x for x in layers.Seq()]))
         else:
             names = ''
+            
         if renders is not None:
             if layers is not None:
-                names += ", "
-            names += "Renders"
+                names += "; "
+            num2name = {v:k for k,v in label2elementnum.items()}
+            evisible = filter(lambda x: board.IsElementVisible(x),
+                                label2elementnum.values()
+                             )
+            # names += "Renders"
+            names += ", ".join([num2name[e] for e in evisible])
             
-        if renders is not None:
             #layercb,rendercb = self.GetCheckboxes()
             #rendercount = len(filter(lambda x: x.Value,rendercb.values()))
-            rendercount=bin(renders).count("1")
-        if layers is not None:
-            layercount = len([x for x in layers.Seq()])
+            # This gets the "raw" count including all "behind the scenes" renders:
+            # renderlabel = str(bin(renders).count("1"))
             
-        if layers is not None:
-            if renders is not None:
-                label = "%d/%d"%(layercount,rendercount)
-            else:
-                label = "%d/"%layercount
-        else:
-            label = "/%d"%rendercount
+            # This gets the renders selected by the user,
+            # assuming label2elementnum is uptodate
+            renderlabel = str(len(evisible))
+            
+        label = layerlabel + '/' + renderlabel
             
         # Create the staticText widget in the stack, that when clicked will
         # set the visible layers to that element.
