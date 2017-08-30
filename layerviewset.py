@@ -43,24 +43,26 @@ class gui (layerviewset_gui.layerviewset_panel):
        functions that tie the gui to the layerviewset class below."""
     _lvset_instance = None
     interior_panel = None
-    def __init__(self, lvset_instance, parent_frame,
-        *args, **kw):
+    def __init__(self, lvset_instance, parent_frame, pane=None, *args, **kw):
+        
         self._lvset_instance = lvset_instance
+        if pane is not None:
+            manager.AddPane( self, pane)
         super(gui,self).__init__(parent_frame)#, *args, **kw)
         #self.makedock(self.GetChildren()[1])#.interior_panel)
-        print self.linkpanel
+        #print self.linkpanel
 
-    def makedock(self,panel=None):
-        managed_window,manager = get_parent_panel()
-        print panel
-        if panel is not None:
-            panel = wx.Panel( managed_window, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.SIMPLE_BORDER|wx.TAB_TRAVERSAL )
-        panel.Reparent(managed_window)
-        manager.AddPane( panel, wx.aui.AuiPaneInfo() .Center() .Caption( u"ViewSet" ).PinButton( True ).Float().FloatingPosition( wx.Point( 346,268 ) ).Resizable().FloatingSize( wx.Size( 60,300 ) ).Layer( 0 ) )    
-        panel.Show()
-        panel.Enable()
-        panel.Raise()
-        manager.Update()
+    # def makedock(self,panel=None):
+        # managed_window,manager = get_parent_panel()
+        # print panel
+        # if panel is not None:
+            # panel = wx.Panel( managed_window, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.SIMPLE_BORDER|wx.TAB_TRAVERSAL )
+        # panel.Reparent(managed_window)
+        # manager.AddPane( panel, wx.aui.AuiPaneInfo() .Center() .Caption( u"ViewSet" ).PinButton( True ).Float().FloatingPosition( wx.Point( 346,268 ) ).Resizable().FloatingSize( wx.Size( 60,300 ) ).Layer( 0 ) )    
+        # panel.Show()
+        # panel.Enable()
+        # panel.Raise()
+        # manager.Update()
 
 
     def load(self,e):
@@ -368,7 +370,7 @@ class layerviewset(pcbnew.ActionPlugin):
             newam = wx.aui.AuiManager.GetManager(win)
             if str(am[-1]) != str(newam):
                 am.append(newam)
-                if len(am) >= 2: # This sets how many generations of different managers to go back
+                if len(am) >= 1: # This sets how many generations of different managers to go back
                     break
         managed_window = am[-1].GetManagedWindow()
         return managed_window,am[-1]
@@ -387,13 +389,24 @@ class layerviewset(pcbnew.ActionPlugin):
             filter(lambda w: w.GetTitle().startswith('Pcbnew'), 
                    wx.GetTopLevelWindows()
             )[0]
-
-        parent, manager = self.GetLayerManager()
-        self._lvset_frame=gui(self,parent)        
-        self._lvset_frame.Show()
-        
-        manager.AddPane( self._lvset_frame, wx.aui.AuiPaneInfo().Caption( u"ViewSet" ) .Center().Float().FloatingPosition( wx.Point( 346,268 ) ).Resizable().FloatingSize( wx.Size( 60,300 ) ).Layer( 0 ) )
+        _pcbnew_manager = wx.aui.AuiManager.GetManager(_pcbnew_frame)
+        parent = _pcbnew_frame
+        manager = _pcbnew_manager
+        #parent, manager = self.GetLayerManager()
+        #print parent.GetTitle(),parent.GetLabel()
+        pane = wx.aui.AuiPaneInfo()                       \
+                 .Caption( u"ViewSet" )                   \
+                 .Center()                                \
+                 .Float()                                 \
+                 .FloatingPosition( wx.Point( 346,268 ) ) \
+                 .Resizable()                             \
+                 .FloatingSize( wx.Size( 60,300 ) )       \
+                 .Layer( 0 )                                 
+        self._lvset_frame=gui(self,parent)
         #  .Caption( u"ViewSet" )
+        #self._lvset_frame.Show()
+        manager.AddPane( self._lvset_frame, pane )
+        #self._lvset_frame.Reparent(parent)
         manager.Update()
         
         #wx.aui.AuiManager.GetManager(self._lvset_frame).Update()
@@ -427,10 +440,12 @@ class layerviewset(pcbnew.ActionPlugin):
         # return
         # The widget is the object that was clicked.
         widget = e.GetEventObject()
-        
+        #wx.MessageDialog(widget,widget.GetLabel(),style=wx.OK).ShowModal()
         # Find that widget in the layersetstack.
-        element = filter (lambda x: x[2],self._layersetstack)[0]
-        
+        element = filter (lambda x: x[2]==widget,self._layersetstack)
+        if not element:
+            element = filter (lambda x: x[2]==widget,self._layersetsaved)
+        element = element[0]
         # The the visible layers according to that element in the stack.        
         if element[0] is not None:
             pcbnew.GetBoard().SetVisibleLayers(element[0])
@@ -438,6 +453,7 @@ class layerviewset(pcbnew.ActionPlugin):
             pcbnew.GetBoard().SetVisibleElements(element[1])
         try:
             pcbnew.UpdateUserInterface()
+            self._message.SetLabel(element[2].GetLabel())
         except:
             self._message.SetLabel("Change Canvas to view")
 
@@ -577,6 +593,8 @@ class layerviewset(pcbnew.ActionPlugin):
             
             # Set the layers
             if element[0] is not None:
+                # for num in range(board.PCB_LAYER_ID_COUNT):
+                    # board.GetDesignSettings().SetLayerVisibility(num,False)
                 board.SetVisibleLayers(element[0])
             if element[1] is not None:
                 board.SetVisibleElements(element[1])

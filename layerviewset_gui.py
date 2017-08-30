@@ -20,6 +20,7 @@ class layerviewset_panel ( wx.Panel ):
 	def __init__( self, parent ):
 		wx.Panel.__init__ ( self, parent, id = wx.ID_ANY, pos = wx.DefaultPosition, size = wx.Size( 312,300 ), style = wx.TAB_TRAVERSAL )
 		
+		self.Hide()
 		self.m_mgr = wx.aui.AuiManager()
 		self.m_mgr.SetManagedWindow( self )
 		self.m_mgr.SetFlags(wx.aui.AUI_MGR_DEFAULT)
