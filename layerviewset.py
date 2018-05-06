@@ -290,6 +290,7 @@ class layerviewset(pcbnew.ActionPlugin):
                 self._message.SetLabel("saving to %s"%new_name)
                 new_path = os.path.join(savepath, new_name)
                 with open(new_path,'w') as f:
+                    #print(dir(found))
                     layers=found.layers
                     self._message.SetLabel("L %s"%new_name)
                     renders=found.renders
@@ -326,9 +327,10 @@ class layerviewset(pcbnew.ActionPlugin):
                 i = self._layersetsaved.index(found)
                 self._layersetsaved[i] = (found.layers,found.renders,widget,new_name,new_filepath)
             self._message.SetLabel("Saved %s"%new_name)
-        except:
+        except Exception as e:
             self._message.SetLabel("ERROR "+self._message.GetLabel())
-         
+            etext = str(e)
+            wx.MessageDialog(widget,etext,style=wx.OK).ShowModal()
 
 
     def deleteset(self,widget):
@@ -625,7 +627,7 @@ class layerviewset(pcbnew.ActionPlugin):
 
         self._count += 1
 
-        element = (layers,renders,widget,None,None)
+        element = Element(layers,renders,widget,None,None)
         self._layersetstack.append(element)
         self._message.SetLabel("done")
 
