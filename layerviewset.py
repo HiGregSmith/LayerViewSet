@@ -27,6 +27,11 @@ import pcbnew
 import wx
 import wx.aui
 import layerviewset_gui
+import collections
+
+# collections.namedtuple(typename, field_names[, verbose=False][, rename=False])
+
+Element = collections.namedtuple('Element','layers renders widget name filepath')
 
 savepath = os.path.join(os.path.expanduser('~'),'kicad','viewsets')
 
@@ -179,7 +184,10 @@ class layerviewset(pcbnew.ActionPlugin):
               self._nameparent,
               filename,
               self.get_tool_tip(layerset,rendervalue))
-            element = (layerset,rendervalue,widget,filename,os.path.join(dirpath,filename))
+
+            #Element = collections.namedtuple('Element','layers renders widget name filepath')
+
+            element = Element(layerset,rendervalue,widget,filename,os.path.join(dirpath,filename))
             self._layersetsaved.append(element)
             
     def get_tool_tip(self, layers, renders):
@@ -232,13 +240,13 @@ class layerviewset(pcbnew.ActionPlugin):
             self._message.SetLabel("error during find")
             
         if found is None:
-            #self._message.SetLabel("set not found")
+            self._message.SetLabel("ERROR: set not found")
             return
         else:
             self._message.SetLabel("set found %d"%len(self._layersetsaved))
         # Ask user for set name
         initname = "Hello"
-        if found[3:4]:
+        if found[3:4][0] is not None:
             self._message.SetLabel("1")
             initname = found[3:4][0]
             self._message.SetLabel("2")
@@ -250,19 +258,29 @@ class layerviewset(pcbnew.ActionPlugin):
             self._message.SetLabel("4")
             initname = "ViewSet "+str(count)
         self._message.SetLabel("5")
-        dlg = wx.TextEntryDialog(self._lvset_frame, "Enter new set name", defaultValue=initname)
-        result = dlg.ShowModal()
+        try:
+            dlg = wx.TextEntryDialog(self._lvset_frame, "Enter new set name", defaultValue=initname)
+            result = dlg.ShowModal()
+        except Exception as e:
+            self._message.SetLabel("E! "+str(initname))
+            result = None
+            return
+        
+        # self._message.SetLabel("6")
+        # self._message.SetLabel("7")
         if result != wx.ID_OK:
             self._message.SetLabel("Cancelled (%s)"%str(result))
             return
+        self._message.SetLabel("8")
         new_name = dlg.GetValue()
-        if filter(lambda x:x[3]==new_name,self._layersetsaved):
+        if filter(lambda x:x.name==new_name,self._layersetsaved):
             self._message.SetLabel("Already exists")
             return
         dlg.Destroy()
 
         try:
-            if not found[3:4]: # test to see if there's a fourth element (i.e. name)
+            if found[3:4][0] is None: # test to see if there's a fourth element (i.e. name)
+            #if not found[3:4]: # test to see if there's a fourth element (i.e. name)
                 # this is a stack, so save and name it.
                 #new_name = str(len(self._layersetsaved))
                 self._message.SetLabel("new name %s"%new_name)
@@ -272,8 +290,10 @@ class layerviewset(pcbnew.ActionPlugin):
                 self._message.SetLabel("saving to %s"%new_name)
                 new_path = os.path.join(savepath, new_name)
                 with open(new_path,'w') as f:
-                    layers=found[0]
-                    renders=found[1]
+                    layers=found.layers
+                    self._message.SetLabel("L %s"%new_name)
+                    renders=found.renders
+                    self._message.SetLabel("R %s"%new_name)
                     if layers is not None:
                         self._message.SetLabel("writing %s, %s"%(new_name,str(layers)))
                         for layer in self.getnamefromlayers(layers):
@@ -285,7 +305,7 @@ class layerviewset(pcbnew.ActionPlugin):
                         self._message.SetLabel("wrote renders")
 
                 new_widget = self.get_viewset_widget(self._nameparent,new_name,tooltip) # names
-                new_element = (found[0],found[1],new_widget,new_name,new_path)
+                new_element = Element(found.layers,found.renders,new_widget,new_name,new_path)
                 self._message.SetLabel("created element")
 
                 self._layersetsaved.append(new_element)    
@@ -293,9 +313,9 @@ class layerviewset(pcbnew.ActionPlugin):
             else:
                 self._message.SetLabel("new name %s"%new_name)
                 # found contains the element to rename
-                widget = found[2]
-                old_name = found[3]
-                old_filepath = found[4]
+                widget = found.widget
+                old_name = found.name
+                old_filepath = found.filepath
                 new_filepath = os.path.join(savepath,new_name)
                 
                 # rename the file
@@ -304,7 +324,7 @@ class layerviewset(pcbnew.ActionPlugin):
                 widget.SetLabel(new_name)
                 # replace the element in the Named ViewSet List
                 i = self._layersetsaved.index(found)
-                self._layersetsaved[i] = (found[0],found[1],widget,new_name,new_filepath)
+                self._layersetsaved[i] = (found.layers,found.renders,widget,new_name,new_filepath)
             self._message.SetLabel("Saved %s"%new_name)
         except:
             self._message.SetLabel("ERROR "+self._message.GetLabel())
@@ -329,7 +349,7 @@ class layerviewset(pcbnew.ActionPlugin):
             self._layersetsaved.remove(found)
         except:
             pass
-        parent = found[2].GetParent()
+        parent = found.widget.GetParent()
         sizer=parent.GetSizer()
         found[2].Destroy()
         try:
@@ -471,6 +491,37 @@ class layerviewset(pcbnew.ActionPlugin):
     def getnamefromrenders(self,renders):
         return name
     
+    d = {}
+    ## Attempt to implement the following:
+    # MouseDown: capture the object, object position, and mouse position
+    # MouseMove: only if the mouse has moved further than half the height of the object,
+    # then begin object movement.
+    # If object is moving:
+    #    Check mouse position over other objects in the same panel
+    #    if moving object is below the current object,
+    #    else if moving object is above the current object,
+    
+    
+    def MouseDown(e):
+        o           = e.GetEventObject()
+        sx,sy       = panel.ScreenToClient(o.GetPositionTuple())
+        dx,dy       = panel.ScreenToClient(wx.GetMousePosition())
+        o._x,o._y   = (sx-dx, sy-dy)
+        self.d['d'] = o
+
+    def MouseMove(e):
+        try:
+            if 'd' in self.d:
+                o = self.d['d']
+                x, y = wx.GetMousePosition()
+                o.SetPosition(wx.Point(x+o._x,y+o._y))
+        except: pass
+
+    def MouseUp(e):
+        try:
+            if 'd' in self.d: del d['d']
+        except: pass
+        
     def get_viewset_widget(self,parent,label,tooltip=None):
         widget = wx.StaticText(
             parent,
@@ -502,6 +553,34 @@ class layerviewset(pcbnew.ActionPlugin):
         parent.Refresh()
 
         return widget
+    def switchfirst(self):
+        '''Get the first two buttons in the named set, and switch their places'''
+        #w0 = self._layersetsaved[0][2]
+        #w1 = self._layersetsaved[1][2]
+        p = self._layersetsaved[0][2].GetParent()
+        s = p.GetSizer()
+        flags = []
+        for e in self._layersetsaved:
+            w = e[2]
+            flags.append(s.GetItem(w).GetFlag()) # Get Flags from SizerItem
+            s.Detach(w)
+            p.RemoveChild(w)
+        self._layersetsaved = self._layersetsaved[::-1] # reverse, shallow copy
+        
+        for i,e in enumerate(self._layersetsaved):
+            w = e[2]
+            p.AddChild(w)           
+            #s.Add(w,wx.ALL)#flags[i])
+            s.Insert(0,w,0,wx.ALL,5)
+        #bsizer = w0.GetParent().GetSizer()
+        # sizer_item0 = bsizer.GetItem(w0)
+        # sizer_item1 = bsizer.GetItem(w1)
+        #bsizer.Detach(w1)
+        #bsizer.Insert(0,w1)
+        #children = w0.GetParent().GetChildren()
+        
+        
+        s.Layout()
         
     def _push(self,layers,renders):
         """Push the current view set onto the stack, create the text widget,
@@ -545,7 +624,8 @@ class layerviewset(pcbnew.ActionPlugin):
         widget = self.get_viewset_widget(self._linkparent,label,names)
 
         self._count += 1
-        element = (layers,renders,widget)
+
+        element = (layers,renders,widget,None,None)
         self._layersetstack.append(element)
         self._message.SetLabel("done")
 
@@ -632,33 +712,62 @@ class layerviewset(pcbnew.ActionPlugin):
     # i=i+1
 # en=en[0:i]
 
+# Derived from KiCad source code, near the top of pcbnew/class_pcb_layer_widget.cpp
+try:
+    label2elementnum = {
+        
+        "Through Via"      : pcbnew.     VIA_THROUGH_VISIBLE,    
+        "Bl/Buried Via"    : pcbnew.   VIA_BBLIND_VISIBLE,       
+        "Micro Via"        : pcbnew.       VIA_MICROVIA_VISIBLE, 
+        "Non Plated"       : pcbnew.      NON_PLATED_VISIBLE,    
+        "Ratsnest"         : pcbnew.        RATSNEST_VISIBLE,    
+                            
+        "Pads Front"       : pcbnew.      PAD_FR_VISIBLE,        
+        "Pads Back"        : pcbnew.       PAD_BK_VISIBLE,       
+                            
+        "Text Front"       : pcbnew.      MOD_TEXT_FR_VISIBLE,   
+        "Text Back"        : pcbnew.       MOD_TEXT_BK_VISIBLE,  
+        "Hidden Text"      : pcbnew.     MOD_TEXT_INVISIBLE,     
+                            
+        "Anchors"          : pcbnew.      ANCHOR_VISIBLE,        
+        "Grid"             : pcbnew.            GRID_VISIBLE,    
+        "No-Connects"      : pcbnew.     NO_CONNECTS_VISIBLE,    
+        "Footprints Front" : pcbnew.   MOD_FR_VISIBLE,           
+        "Footprints Back"  : pcbnew.    MOD_BK_VISIBLE,          
+        "Values"           : pcbnew.          MOD_VALUES_VISIBLE,
+        "References"       : pcbnew.      MOD_REFERENCES_VISIBLE,
+    }
+except:
+    label2elementnum = {
+         "Through Via" : pcbnew.LAYER_VIA_THROUGH ,
+         "Bl/Buried Via" : pcbnew.LAYER_VIA_BBLIND , 
+         "Micro Via" : pcbnew.LAYER_VIA_MICROVIA , 
+         "Ratsnest" : pcbnew.LAYER_RATSNEST ,
+         "Pads Front" : pcbnew.LAYER_PAD_FR ,
+         "Pads Back" : pcbnew.LAYER_PAD_BK , 
+         "Text Front" : pcbnew.LAYER_MOD_TEXT_FR ,
+         "Text Back" : pcbnew.LAYER_MOD_TEXT_BK , 
+         "Hidden Text" : pcbnew.LAYER_MOD_TEXT_INVISIBLE ,
+         "Anchors" : pcbnew.LAYER_ANCHOR ,
+         "Grid" : pcbnew.LAYER_GRID , 
+         "No-Connects" : pcbnew.LAYER_NO_CONNECTS , 
+         "Footprints Front" : pcbnew.LAYER_MOD_FR , 
+         "Footprints Back" : pcbnew.LAYER_MOD_BK ,
+         "Values" : pcbnew.LAYER_MOD_VALUES , 
+         "References" : pcbnew.LAYER_MOD_REFERENCES , 
+         "Worksheet" : pcbnew.LAYER_WORKSHEET , 
+         "Cursor" : pcbnew.LAYER_CURSOR , 
+         "Aux items" : pcbnew.LAYER_AUX_ITEMS , 
+         "Background" : pcbnew.LAYER_PCB_BACKGROUND ,
+    }
+    try:
+        label2elementnum["Non Plated Holes"] = pcbnew.LAYER_NON_PLATED 
+    except:
+        label2elementnum["Non Plated Holes"] = pcbnew.LAYER_NON_PLATEDHOLES
+
 # Instantiate and register the ActionPlugin class when imported.
 _lvset = layerviewset()
 _lvset.register()
+_lvset.Run()
 
 
-
-# Derived from KiCad source code, near the top of pcbnew/class_pcb_layer_widget.cpp
-label2elementnum = {
-     "Through Via" : pcbnew.LAYER_VIA_THROUGH ,
-     "Bl/Buried Via" : pcbnew.LAYER_VIA_BBLIND , 
-     "Micro Via" : pcbnew.LAYER_VIA_MICROVIA , 
-     "Non Plated Holes" : pcbnew.LAYER_NON_PLATED ,
-     "Ratsnest" : pcbnew.LAYER_RATSNEST ,
-     "Pads Front" : pcbnew.LAYER_PAD_FR ,
-     "Pads Back" : pcbnew.LAYER_PAD_BK , 
-     "Text Front" : pcbnew.LAYER_MOD_TEXT_FR ,
-     "Text Back" : pcbnew.LAYER_MOD_TEXT_BK , 
-     "Hidden Text" : pcbnew.LAYER_MOD_TEXT_INVISIBLE ,
-     "Anchors" : pcbnew.LAYER_ANCHOR ,
-     "Grid" : pcbnew.LAYER_GRID , 
-     "No-Connects" : pcbnew.LAYER_NO_CONNECTS , 
-     "Footprints Front" : pcbnew.LAYER_MOD_FR , 
-     "Footprints Back" : pcbnew.LAYER_MOD_BK ,
-     "Values" : pcbnew.LAYER_MOD_VALUES , 
-     "References" : pcbnew.LAYER_MOD_REFERENCES , 
-     "Worksheet" : pcbnew.LAYER_WORKSHEET , 
-     "Cursor" : pcbnew.LAYER_CURSOR , 
-     "Aux items" : pcbnew.LAYER_AUX_ITEMS , 
-     "Background" : pcbnew.LAYER_PCB_BACKGROUND ,
-}
