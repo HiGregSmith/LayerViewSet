@@ -405,7 +405,7 @@ class layerviewset(pcbnew.ActionPlugin):
         # Instantiate and Show the gui, giving it
         # the current instance (for calling functions) and
         # the parent frame (Pcbnew)
-        
+        #import wx
         # Find the main "Pcbnew" wx window.
         _pcbnew_frame = \
             filter(lambda w: w.GetTitle().startswith('Pcbnew'), 
@@ -770,6 +770,6 @@ except:
 # Instantiate and register the ActionPlugin class when imported.
 _lvset = layerviewset()
 _lvset.register()
-_lvset.Run()
+#_lvset.Run()
 
 
