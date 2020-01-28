@@ -44,7 +44,6 @@ class layerviewset_panel ( wx.Panel ):
 		self.m_staticText19.Wrap( -1 )
 		bSizer7.Add( self.m_staticText19, 0, wx.ALL, 5 )
 		
-		
 		self.namepanel.SetSizer( bSizer7 )
 		self.namepanel.Layout()
 		bSizer7.Fit( self.namepanel )
@@ -56,13 +55,18 @@ class layerviewset_panel ( wx.Panel ):
 		bSizer3.Add( self.m_staticText3, 0, wx.ALL, 5 )
 		
 		self.m_button3 = wx.Button( self.linkpanel, wx.ID_ANY, u"99/99", wx.DefaultPosition, wx.DefaultSize, wx.BU_EXACTFIT|wx.NO_BORDER )
+        
 		self.m_menu3 = wx.Menu()
-		self.m_menuItem5 = wx.MenuItem( self.m_menu3, wx.ID_ANY, u"Name", wx.EmptyString, wx.ITEM_NORMAL )
-		self.m_menu3.Append( self.m_menuItem5 )
+		#self.m_menuItem5 = wx.MenuItem( self.m_menu3, wx.ID_ANY, u"Name", wx.EmptyString, wx.ITEM_NORMAL )
+		#self.m_menu3.Append( self.m_menuItem5)
+		#self.m_menuItem5 = self.m_menu3.Append(self.m_menu3,wx.ID_ANY, item=u"Name", helpString=wx.EmptyString, kind=wx.ITEM_NORMAL)
 		
-		self.m_menuItem6 = wx.MenuItem( self.m_menu3, wx.ID_ANY, u"Delete", wx.EmptyString, wx.ITEM_NORMAL )
-		self.m_menu3.Append( self.m_menuItem6 )
-		
+		# It's a fairly consistent battle to get this Append or AppendItem to work. This works for now.
+		self.m_menuItem5 = self.m_menu3.Append(wx.ID_ANY, text=u"Name", help=wx.EmptyString, kind=wx.ITEM_NORMAL)
+        
+		#self.m_menuItem6 = wx.MenuItem( self.m_menu3, wx.ID_ANY, u"Delete", wx.EmptyString, wx.ITEM_NORMAL )
+		#self.m_menu3.Append( self.m_menuItem6)
+		self.m_menuItem6 = self.m_menu3.Append( wx.ID_ANY, u"Delete", wx.EmptyString, wx.ITEM_NORMAL )
 		self.m_button3.Bind( wx.EVT_RIGHT_DOWN, self.m_button3OnContextMenu ) 
 		
 		bSizer3.Add( self.m_button3, 0, wx.LEFT|wx.RIGHT|wx.SHAPED, 4 )
@@ -85,21 +89,21 @@ class layerviewset_panel ( wx.Panel ):
 		
 		gbSizer2.Add( self.m_staticText4, wx.GBPosition( 1, 0 ), wx.GBSpan( 1, 1 ), wx.ALIGN_RIGHT|wx.ALL, 5 )
 		
-		self.m_staticText41 = wx.StaticText( self.toppanel, wx.ID_ANY, u"Renders", wx.DefaultPosition, wx.DefaultSize, 0|wx.RAISED_BORDER )
+		self.m_staticText41 = wx.StaticText( self.toppanel, wx.ID_ANY, u"Items", wx.DefaultPosition, wx.DefaultSize, 0|wx.RAISED_BORDER )
 		self.m_staticText41.Wrap( -1 )
-		self.m_staticText41.SetToolTipString( u"Push visible Renders onto stack." )
+		self.m_staticText41.SetToolTipString( u"Push visible Items onto stack." )
 		
 		gbSizer2.Add( self.m_staticText41, wx.GBPosition( 1, 2 ), wx.GBSpan( 1, 1 ), wx.ALIGN_LEFT|wx.ALL, 5 )
 		
 		self.m_staticText42 = wx.StaticText( self.toppanel, wx.ID_ANY, u"-v-", wx.DefaultPosition, wx.DefaultSize, 0|wx.RAISED_BORDER )
 		self.m_staticText42.Wrap( -1 )
-		self.m_staticText42.SetToolTipString( u"Push visible Layers and Renders onto stack." )
+		self.m_staticText42.SetToolTipString( u"Push visible Layers and Items onto stack." )
 		
 		gbSizer2.Add( self.m_staticText42, wx.GBPosition( 1, 1 ), wx.GBSpan( 1, 1 ), wx.ALIGN_CENTER|wx.ALL, 5 )
 		
 		self.m_staticText5 = wx.StaticText( self.toppanel, wx.ID_ANY, u"--^--", wx.DefaultPosition, wx.DefaultSize, 0|wx.RAISED_BORDER )
 		self.m_staticText5.Wrap( -1 )
-		self.m_staticText5.SetToolTipString( u"Pop stack and assign visible layers and/or renders." )
+		self.m_staticText5.SetToolTipString( u"Pop stack and assign visible layers and/or items." )
 		
 		gbSizer2.Add( self.m_staticText5, wx.GBPosition( 0, 0 ), wx.GBSpan( 1, 1 ), wx.LEFT|wx.TOP, 5 )
 		

@@ -31,7 +31,7 @@ import collections
 
 # collections.namedtuple(typename, field_names[, verbose=False][, rename=False])
 
-Element = collections.namedtuple('Element','layers renders widget name filepath')
+Element = collections.namedtuple('Element','layers items widget name filepath')
 
 savepath = os.path.join(os.path.expanduser('~'),'kicad','viewsets')
 
@@ -95,8 +95,8 @@ class gui (layerviewset_gui.layerviewset_panel):
         self._lvset_instance.push()
     def pushlayers(self,e):
         self._lvset_instance.pushlayers()
-    def pushrenders(self,e):
-        self._lvset_instance.pushrenders()
+    def pushitems(self,e):
+        self._lvset_instance.pushitems()
         
     def pop(self,e):
         self._lvset_instance.pop()
@@ -185,12 +185,12 @@ class layerviewset(pcbnew.ActionPlugin):
               filename,
               self.get_tool_tip(layerset,rendervalue))
 
-            #Element = collections.namedtuple('Element','layers renders widget name filepath')
+            #Element = collections.namedtuple('Element','layers items widget name filepath')
 
             element = Element(layerset,rendervalue,widget,filename,os.path.join(dirpath,filename))
             self._layersetsaved.append(element)
             
-    def get_tool_tip(self, layers, renders):
+    def get_tool_tip(self, layers, items):
         #board = pcbnew.GetBoard()
         #renderlabel = ""
         #layerlabel = ""
@@ -203,7 +203,7 @@ class layerviewset(pcbnew.ActionPlugin):
         else:
             tooltip = ''
             
-        if renders is not None:
+        if items is not None:
             if layers is not None:
                 tooltip += "; "
             num2name = {v:k for k,v in label2elementnum.items()}
@@ -211,14 +211,14 @@ class layerviewset(pcbnew.ActionPlugin):
                                 # label2elementnum.values()
                              # )
             # tooltip += ", ".join([num2name[e] for e in evisible])
-            tooltip += "Renders"
+            tooltip += "Items"
             
             #layercb,rendercb = self.GetCheckboxes()
             #rendercount = len(filter(lambda x: x.Value,rendercb.values()))
-            # This gets the "raw" count including all "behind the scenes" renders:
-            # renderlabel = str(bin(renders).count("1"))
+            # This gets the "raw" count including all "behind the scenes" items:
+            # renderlabel = str(bin(items).count("1"))
             
-            # This gets the renders selected by the user,
+            # This gets the items selected by the user,
             # assuming label2elementnum is uptodate
             #renderlabel = str(len(evisible))
             
@@ -293,20 +293,20 @@ class layerviewset(pcbnew.ActionPlugin):
                     #print(dir(found))
                     layers=found.layers
                     self._message.SetLabel("L %s"%new_name)
-                    renders=found.renders
-                    self._message.SetLabel("R %s"%new_name)
+                    items=found.items
+                    self._message.SetLabel("I %s"%new_name)
                     if layers is not None:
                         self._message.SetLabel("writing %s, %s"%(new_name,str(layers)))
                         for layer in self.getnamefromlayers(layers):
                             f.write('layer,%s,%d\n'%(layer,1))
                         self._message.SetLabel("wrote layers")
-                    if renders is not None:
-                        rname = "{0:b}".format(renders)
+                    if items is not None:
+                        rname = "{0:b}".format(items)
                         f.write('render,%s,%d\n'%(rname,1))
-                        self._message.SetLabel("wrote renders")
+                        self._message.SetLabel("wrote items")
 
                 new_widget = self.get_viewset_widget(self._nameparent,new_name,tooltip) # names
-                new_element = Element(found.layers,found.renders,new_widget,new_name,new_path)
+                new_element = Element(found.layers,found.items,new_widget,new_name,new_path)
                 self._message.SetLabel("created element")
 
                 self._layersetsaved.append(new_element)    
@@ -325,7 +325,7 @@ class layerviewset(pcbnew.ActionPlugin):
                 widget.SetLabel(new_name)
                 # replace the element in the Named ViewSet List
                 i = self._layersetsaved.index(found)
-                self._layersetsaved[i] = (found.layers,found.renders,widget,new_name,new_filepath)
+                self._layersetsaved[i] = (found.layers,found.items,widget,new_name,new_filepath)
             self._message.SetLabel("Saved %s"%new_name)
         except Exception as e:
             self._message.SetLabel("ERROR "+self._message.GetLabel())
@@ -371,7 +371,7 @@ class layerviewset(pcbnew.ActionPlugin):
         """Support for ActionPlugins, though it doesn't work in 4.0.6 nightly and later"""
         self.name = "Layer ViewSet"
         self.category = "Layers"
-        self.description = "Save and restore view settings for layers and renders."
+        self.description = "Save and restore view settings for layers and items."
 
         
     #######
@@ -485,12 +485,12 @@ class layerviewset(pcbnew.ActionPlugin):
     def pushlayers(self):
         self._push(pcbnew.GetBoard().GetVisibleLayers(),None)
     
-    def pushrenders(self):
+    def pushitems(self):
         self._push(None,pcbnew.GetBoard().GetVisibleElements())
     def getnamefromlayers(self,layers):
         return [pcbnew.GetBoard().GetLayerName(num) for num in 
                 [x for x in layers.Seq()]]
-    def getnamefromrenders(self,renders):
+    def getnamefromitems(self,items):
         return name
     
     d = {}
@@ -584,7 +584,7 @@ class layerviewset(pcbnew.ActionPlugin):
         
         s.Layout()
         
-    def _push(self,layers,renders):
+    def _push(self,layers,items):
         """Push the current view set onto the stack, create the text widget,
            and add the widget to the display."""
 
@@ -600,22 +600,22 @@ class layerviewset(pcbnew.ActionPlugin):
         else:
             names = ''
             
-        if renders is not None:
+        if items is not None:
             if layers is not None:
                 names += "; "
             num2name = {v:k for k,v in label2elementnum.items()}
             evisible = filter(lambda x: board.IsElementVisible(x),
                                 label2elementnum.values()
                              )
-            # names += "Renders"
+            # names += "Items"
             names += ", ".join([num2name[e] for e in evisible])
             
             #layercb,rendercb = self.GetCheckboxes()
             #rendercount = len(filter(lambda x: x.Value,rendercb.values()))
-            # This gets the "raw" count including all "behind the scenes" renders:
-            # renderlabel = str(bin(renders).count("1"))
+            # This gets the "raw" count including all "behind the scenes" items:
+            # renderlabel = str(bin(items).count("1"))
             
-            # This gets the renders selected by the user,
+            # This gets the items selected by the user,
             # assuming label2elementnum is uptodate
             renderlabel = str(len(evisible))
             
@@ -627,7 +627,7 @@ class layerviewset(pcbnew.ActionPlugin):
 
         self._count += 1
 
-        element = Element(layers,renders,widget,None,None)
+        element = Element(layers,items,widget,None,None)
         self._layersetstack.append(element)
         self._message.SetLabel("done")
 
