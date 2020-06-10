@@ -471,8 +471,10 @@ class layerviewset(pcbnew.ActionPlugin):
         # The the visible layers according to that element in the stack.        
         if element[0] is not None:
             pcbnew.GetBoard().SetVisibleLayers(element[0])
+            pcbnew.Refresh()
         if element[1] is not None:
             pcbnew.GetBoard().SetVisibleElements(element[1])
+            pcbnew.Refresh()
         try:
             pcbnew.UpdateUserInterface()
             self._message.SetLabel(element[2].GetLabel())
@@ -678,8 +680,10 @@ class layerviewset(pcbnew.ActionPlugin):
                 # for num in range(board.PCB_LAYER_ID_COUNT):
                     # board.GetDesignSettings().SetLayerVisibility(num,False)
                 board.SetVisibleLayers(element[0])
+                pcbnew.Refresh()
             if element[1] is not None:
                 board.SetVisibleElements(element[1])
+                pcbnew.Refresh()
                 
             #for layer,cb in layercb.iteritems():
             #    cb.Value = board.IsLayerVisible(layer)
